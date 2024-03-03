@@ -4,10 +4,12 @@ pub struct HelloPlugin;
 
 impl Plugin for HelloPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, add_spiders).add_systems(
-            Update,
-            (hello_world, (greet_spiders, update_spiders).chain()),
-        );
+        app.insert_resource(GreetTimer(Timer::from_seconds(2.0, TimerMode::Repeating)))
+            .add_systems(Startup, add_spiders)
+            .add_systems(
+                Update,
+                (greet_spiders, update_spiders).chain(),
+            );
     }
 }
 
@@ -17,9 +19,9 @@ struct Spider;
 #[derive(Component)]
 struct Name(String);
 
-fn hello_world() {
-    println!("test by test");
-}
+// fn hello_world() {
+//     println!("test by test");
+// }
 
 fn add_spiders(mut commands: Commands) {
     commands.spawn((Spider, Name("Vasya".to_string())));
@@ -27,9 +29,18 @@ fn add_spiders(mut commands: Commands) {
     commands.spawn((Spider, Name("Hatiko".to_string())));
 }
 
-fn greet_spiders(query: Query<&Name, With<Spider>>) {
-    for name in &query {
-        println!("hello {}!", name.0);
+#[derive(Resource)]
+struct GreetTimer(Timer);
+
+fn greet_spiders(
+    time: Res<Time>,
+    mut timer: ResMut<GreetTimer>,
+    query: Query<&Name, With<Spider>>,
+) {
+    if timer.0.tick(time.delta()).just_finished() {
+        for name in &query {
+            println!("hello {}!", name.0);
+        }
     }
 }
 
