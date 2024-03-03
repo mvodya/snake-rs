@@ -1,54 +1,65 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::ScalingMode};
 
 pub struct HelloPlugin;
 
 impl Plugin for HelloPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(GreetTimer(Timer::from_seconds(2.0, TimerMode::Repeating)))
-            .add_systems(Startup, add_spiders)
-            .add_systems(
-                Update,
-                (greet_spiders, update_spiders).chain(),
-            );
+        app
+        .insert_resource(ClearColor(Color::rgb(0.1, 0.1, 0.1)))
+        .add_systems(Startup, (setup, spawn_player))
+        .add_systems(Update, move_player);
     }
 }
 
-#[derive(Component)]
-struct Spider;
-
-#[derive(Component)]
-struct Name(String);
-
-// fn hello_world() {
-//     println!("test by test");
-// }
-
-fn add_spiders(mut commands: Commands) {
-    commands.spawn((Spider, Name("Vasya".to_string())));
-    commands.spawn((Spider, Name("Momoto".to_string())));
-    commands.spawn((Spider, Name("Hatiko".to_string())));
+fn setup(mut commands: Commands) {
+    let mut camera_bundle = Camera2dBundle::default();
+    camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.0);
+    commands.spawn(camera_bundle);
 }
 
-#[derive(Resource)]
-struct GreetTimer(Timer);
+#[derive(Component)]
+struct Player;
 
-fn greet_spiders(
-    time: Res<Time>,
-    mut timer: ResMut<GreetTimer>,
-    query: Query<&Name, With<Spider>>,
+fn spawn_player(mut commands: Commands) {
+    commands.spawn((
+        Player,
+        SpriteBundle {
+        sprite: Sprite {
+            color: Color::rgb(0., 0.5, 1.),
+            custom_size: Some(Vec2::new(1., 1.)),
+            ..default()
+        },
+        ..default()
+    }));
+}
+
+fn move_player(
+  mut players: Query<&mut Transform, With<Player>>,
+  keys: Res<ButtonInput<KeyCode>>,
+  time: Res<Time>,
 ) {
-    if timer.0.tick(time.delta()).just_finished() {
-        for name in &query {
-            println!("hello {}!", name.0);
-        }
+    let mut direction = Vec2::ZERO;
+    if keys.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]) {
+        direction.y += 1.;
     }
-}
+    if keys.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]) {
+        direction.y -= 1.;
+    }
+    if keys.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
+        direction.x += 1.;
+    }
+    if keys.any_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
+        direction.x -= 1.;
+    }
+    if direction == Vec2::ZERO {
+        return;
+    }
+    direction = direction.normalize();
 
-fn update_spiders(mut query: Query<&mut Name, With<Spider>>) {
-    for mut name in &mut query {
-        if name.0 == "Vasya" {
-            name.0 = "Petya".to_string();
-            break;
-        }
+    let move_speed = 7.;
+    let move_delta = direction * move_speed * time.delta_seconds();
+
+    for mut transform in &mut players {
+        transform.translation += move_delta.extend(0.);
     }
 }
