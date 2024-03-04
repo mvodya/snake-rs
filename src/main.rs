@@ -14,7 +14,7 @@ enum GameState {
 
 fn main() {
     App::new()
-        .insert_state(GameState::MainMenu)
+        .insert_state(GameState::InGame)
         .add_plugins((
             DefaultPlugins.set(bevy::log::LogPlugin {
                 level: bevy::log::Level::DEBUG,
@@ -43,11 +43,11 @@ fn test_switch_state(
     game_state: Res<State<GameState>>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
-        debug!("Update GameState requested");
-        match game_state.get() {
-            GameState::MainMenu => next_state.set(GameState::InGame),
-            GameState::InGame => next_state.set(GameState::MainMenu),
-            GameState::GameOver => next_state.set(GameState::MainMenu),
-        }
+        // debug!("Update GameState requested");
+        // match game_state.get() {
+        //     GameState::MainMenu => next_state.set(GameState::InGame),
+        //     GameState::InGame => next_state.set(GameState::MainMenu),
+        //     GameState::GameOver => next_state.set(GameState::MainMenu),
+        // }
     }
 }
