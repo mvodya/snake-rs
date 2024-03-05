@@ -1,10 +1,20 @@
-use bevy::prelude::*;
+use bevy::{a11y::accesskit::DefaultActionVerb, prelude::*, transform};
 
 use crate::GameState;
 
 use super::GameTickTimer;
 
 pub struct SnakePlugin;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+enum MovementStages {
+    /// everything that handles input
+    Input,
+    /// everything that moves things
+    Calculate,
+    /// systems that update the world map
+    Commit,
+}
 
 impl Plugin for SnakePlugin {
     fn build(&self, app: &mut App) {
@@ -14,9 +24,15 @@ impl Plugin for SnakePlugin {
             .add_systems(
                 Update,
                 (
-                    snake_input,
-                    move_snake_head,
-                    (move_snake_body).after(move_snake_head),
+                    snake_input.in_set(MovementStages::Input),
+                    (move_snake_head, move_snake_body)
+                        .in_set(MovementStages::Calculate)
+                        .after(MovementStages::Input),
+                    move_all_movable
+                        .in_set(MovementStages::Commit)
+                        .after(MovementStages::Calculate),
+                    on_snake_spawn,
+                    (spawn_snake_body).after(MovementStages::Commit),
                 ),
             );
     }
@@ -51,10 +67,19 @@ impl SnakeDirection {
 struct Snake(SnakeDirection);
 
 #[derive(Component)]
+struct SnakeRef(Entity);
+
+#[derive(Component)]
 struct SnakeBody(Option<Entity>);
+
+#[derive(Component)]
+struct SnakeTail;
 
 #[derive(Event)]
 struct SnakeSpawnedEvent(Entity);
+
+#[derive(Component)]
+struct Movable(Option<Vec2>);
 
 fn setup() {
     // TODO
@@ -62,9 +87,11 @@ fn setup() {
 }
 
 fn spawn_snake(mut ev_snake_spawned: EventWriter<SnakeSpawnedEvent>, mut commands: Commands) {
+    // Spawn snake
     let snake = commands.spawn((
         Snake(SnakeDirection::Right),
         SnakeBody(None),
+        Movable(None),
         SpriteBundle {
             sprite: Sprite {
                 color: Color::rgb(1., 1., 1.),
@@ -78,18 +105,90 @@ fn spawn_snake(mut ev_snake_spawned: EventWriter<SnakeSpawnedEvent>, mut command
     ev_snake_spawned.send(SnakeSpawnedEvent(snake.id()));
 }
 
-fn move_snake_head(mut snakes: Query<(&mut Transform, &Snake)>, timer: ResMut<GameTickTimer>) {
+fn on_snake_spawn(
+    mut ev_snake_spawned: EventReader<SnakeSpawnedEvent>,
+    snakes: Query<(Entity, &Transform), With<Snake>>,
+    mut commands: Commands,
+) {
+    for ev in ev_snake_spawned.read() {
+        // Search snake
+        let (snake, snake_pos) = snakes.get(ev.0).unwrap();
+        // Calculate position
+        let new_pos = snake_pos.translation/* + Vec3::new(-1., 0., 0.)*/;
+        // Spawn snake body
+        commands.spawn((
+            SnakeBody(Some(snake)),
+            Movable(None),
+            SnakeRef(snake),
+            SnakeTail,
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::rgb(1., 1., 1.),
+                    custom_size: Vec2::new(1., 1.).into(),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: new_pos,
+                    ..default()
+                },
+                ..default()
+            },
+        ));
+    }
+}
+
+fn move_snake_head(
+    mut snakes: Query<(&mut Movable, &Transform, &Snake)>,
+    timer: ResMut<GameTickTimer>,
+) {
     if timer.0.just_finished() {
-        for (mut transform, snake) in &mut snakes {
-            let movement = snake.0.get_vector();
-            transform.translation += movement.extend(0.);
+        for (mut movable, transform, snake) in &mut snakes {
+            let current_pos = transform.translation.truncate();
+            let next_pos = snake.0.get_vector() + current_pos;
+            movable.0 = Some(next_pos);
         }
     }
 }
 
-fn move_snake_body() {}
+fn move_snake_body(
+    mut movable_bodies: Query<(&mut Movable, &SnakeBody), Without<Snake>>,
+    bodies: Query<&Transform, With<SnakeBody>>,
+    timer: ResMut<GameTickTimer>,
+) {
+    if timer.0.just_finished() {
+        for (mut movable, body) in &mut movable_bodies {
+            if let Some(next_body) = body.0 {
+                let next_pos = bodies.get(next_body).unwrap().translation;
+                movable.0 = Some(next_pos.truncate());
+            }
+        }
+    }
+}
 
-fn snake_input(mut snakes: Query<&mut Snake>, keys: Res<ButtonInput<KeyCode>>, time: Res<Time>) {
+fn move_all_movable(
+    mut movable: Query<(&mut Movable, &mut Transform)>,
+    timer: ResMut<GameTickTimer>,
+) {
+    if timer.0.just_finished() {
+        for (mut movable, mut transform) in &mut movable {
+            if let Some(pos) = movable.0 {
+                transform.translation = pos.extend(0.);
+            }
+            movable.0 = None;
+        }
+    }
+}
+
+// fn move_snake_body(mut bodies: Query<(&mut Transform, &SnakeBody), Without<Snake>>, timer: ResMut<GameTickTimer>) {
+//     if timer.0.just_finished() {
+//         for (mut transform, body) in &mut bodies {
+//             let next_pos = body.0;
+//             transform.translation += movement.extend(0.);
+//         }
+//     }
+// }
+
+fn snake_input(mut snakes: Query<&mut Snake>, keys: Res<ButtonInput<KeyCode>>) {
     let mut direction: Option<SnakeDirection> = None;
     if keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW]) {
         direction = SnakeDirection::Up.into();
@@ -112,8 +211,57 @@ fn snake_input(mut snakes: Query<&mut Snake>, keys: Res<ButtonInput<KeyCode>>, t
     }
 }
 
-fn spawn_snake_body(mut ev_snake_spawned: EventReader<SnakeSpawnedEvent>, mut commands: Commands) {
-    for ev in ev_snake_spawned.read() {}
+fn spawn_snake_body(
+    // mut ev_snake_spawned: EventReader<SnakeSpawnedEvent>,
+    mut commands: Commands,
+    timer: ResMut<GameTickTimer>,
+    mut tails: Query<(Entity, &SnakeBody, &SnakeRef, &Transform), With<SnakeTail>>,
+    bodies: Query<&Transform, (With<SnakeBody>, Without<SnakeTail>)>,
+) {
+    if !timer.0.just_finished() {
+        return;
+    };
+    debug!("Spawn new snake body");
+
+    for (entity, body, snake, transform) in &mut tails {
+        // Get current position
+        let current_pos = transform.translation;
+
+        // Get next snake body entity
+        if let Some(next_body) = body.0 {
+            // Search transformation component for next snake body
+            let next_body_pos = bodies.get(next_body).unwrap().translation;
+            // Calculate delta of current position and next position
+            let delta = (current_pos - next_body_pos);
+            // Calculate new position for tail
+            let new_pos = current_pos + delta;
+
+            // Spawn new snake tail
+            commands.spawn((
+                SnakeBody(Some(entity)),
+                Movable(None),
+                SnakeRef(snake.0),
+                SnakeTail,
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::rgb(1., 1., 1.),
+                        custom_size: Vec2::new(1., 1.).into(),
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: new_pos,
+                        ..default()
+                    },
+                    ..default()
+                },
+            ));
+
+            // Remove snake tail from pervious body
+            commands.entity(entity).remove::<SnakeTail>();
+        }
+    }
+
+    // for ev in ev_snake_spawned.read() {}
 }
 
 fn despawn_all_snakes(mut commands: Commands, query: Query<(Entity, &Snake)>) {
