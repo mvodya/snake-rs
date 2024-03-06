@@ -75,7 +75,7 @@ jobs:
       with:
         toolchain: stable
         targets: "${{ matrix.target }}"
-    - if: ${{matrix.runner}} == "ubuntu-latest"
+    - if: matrix.runner == "ubuntu-latest"
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:
         packages: pkg-config libx11-dev libasound2-dev libudev-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
