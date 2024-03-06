@@ -31,7 +31,7 @@ jobs:
     - name: Install wasm-bindgen from crates.io
       uses: baptiste0928/cargo-install@v3
       with:
-        crate: wasm-bindgen
+        crate: wasm-bindgen-cli
     - name: Setup Cache
       uses: Swatinem/rust-cache@v2
     - name: Build
