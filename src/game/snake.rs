@@ -1,20 +1,12 @@
-use bevy::{a11y::accesskit::DefaultActionVerb, prelude::*, transform};
+use bevy::prelude::*;
 
 use crate::GameState;
 
 use super::GameTickTimer;
+use super::MovementStages;
+use super::Movable;
 
 pub struct SnakePlugin;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-enum MovementStages {
-    /// everything that handles input
-    Input,
-    /// everything that moves things
-    Calculate,
-    /// systems that update the world map
-    Commit,
-}
 
 impl Plugin for SnakePlugin {
     fn build(&self, app: &mut App) {
@@ -28,9 +20,6 @@ impl Plugin for SnakePlugin {
                     (move_snake_head, move_snake_body)
                         .in_set(MovementStages::Calculate)
                         .after(MovementStages::Input),
-                    move_all_movable
-                        .in_set(MovementStages::Commit)
-                        .after(MovementStages::Calculate),
                     on_snake_spawn,
                     (spawn_snake_body).after(MovementStages::Commit),
                 ),
@@ -77,9 +66,6 @@ struct SnakeTail;
 
 #[derive(Event)]
 struct SnakeSpawnedEvent(Entity);
-
-#[derive(Component)]
-struct Movable(Option<Vec2>);
 
 fn setup() {
     // TODO
@@ -165,20 +151,6 @@ fn move_snake_body(
     }
 }
 
-fn move_all_movable(
-    mut movable: Query<(&mut Movable, &mut Transform)>,
-    timer: ResMut<GameTickTimer>,
-) {
-    if timer.0.just_finished() {
-        for (mut movable, mut transform) in &mut movable {
-            if let Some(pos) = movable.0 {
-                transform.translation = pos.extend(0.);
-            }
-            movable.0 = None;
-        }
-    }
-}
-
 // fn move_snake_body(mut bodies: Query<(&mut Transform, &SnakeBody), Without<Snake>>, timer: ResMut<GameTickTimer>) {
 //     if timer.0.just_finished() {
 //         for (mut transform, body) in &mut bodies {
@@ -221,7 +193,7 @@ fn spawn_snake_body(
     if !timer.0.just_finished() {
         return;
     };
-    debug!("Spawn new snake body");
+    // debug!("Spawn new snake body");
 
     for (entity, body, snake, transform) in &mut tails {
         // Get current position
