@@ -40,6 +40,7 @@ impl Plugin for GamePlugin {
                 move_all_movable
                     .in_set(MovementStages::Commit)
                     .after(MovementStages::Calculate),
+                test_game_over,
             ),
         );
     }
@@ -89,5 +90,14 @@ fn move_all_movable(
                 movable.0 = None;
             }
         }
+    }
+}
+
+fn test_game_over(
+    mut ev_snake_catastrophic: EventReader<snake::SnakeCatastrophicEvent>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    for _ev in ev_snake_catastrophic.read() {
+        next_state.set(GameState::GameOver);
     }
 }

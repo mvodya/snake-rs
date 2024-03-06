@@ -75,11 +75,11 @@ struct SnakeTail;
 ///
 /// Attention! Snake spawned without SnakeTail & SnakeRef
 #[derive(Event)]
-struct SnakeSpawnedEvent(Entity);
+pub struct SnakeSpawnedEvent(Entity);
 
 /// Called when snake collides with other snake
 #[derive(Event)]
-struct SnakeCatastrophicEvent(Entity);
+pub struct SnakeCatastrophicEvent(Entity);
 
 /// Spawn snake head
 fn spawn_snake(mut ev_snake_spawned: EventWriter<SnakeSpawnedEvent>, mut commands: Commands) {
@@ -194,7 +194,7 @@ fn spawn_snake_body(
             // Search transformation component for next snake body
             let next_body_pos = bodies.get(next_body).unwrap().translation;
             // Calculate delta of current position and next position
-            delta = (current_pos - next_body_pos);
+            delta = current_pos - next_body_pos;
         } else if let Some(snake) = snake {
             // Get delta from direction of snake head moving
             delta = snake.0.get_vector().extend(0.) * Vec3::new(-1., -1., -1.);
@@ -231,9 +231,9 @@ fn spawn_snake_body(
     }
 }
 
-/// TODO: Remove snake head and snake elements
-fn despawn_all_snakes(mut commands: Commands, query: Query<(Entity, &Snake)>) {
-    for (entity, snake) in query.iter() {
+/// Remove snake head and snake elements
+fn despawn_all_snakes(mut commands: Commands, query: Query<Entity, With<SnakeBody>>) {
+    for entity in query.iter() {
         commands.entity(entity).despawn();
     }
 }
