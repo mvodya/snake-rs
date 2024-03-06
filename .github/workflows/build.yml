@@ -32,7 +32,6 @@ jobs:
       uses: baptiste0928/cargo-install@v3
       with:
         crate: wasm-bindgen-cli
-        version: "0.2.92"
     - name: Setup Cache
       uses: Swatinem/rust-cache@v2
     - name: Build
@@ -49,7 +48,7 @@ jobs:
       uses: actions/upload-pages-artifact@v3
       with:
         path: ./web
-        
+
   # Build Linux target job
   build:
     runs-on: ${{ matrix.runner }}
@@ -106,7 +105,7 @@ jobs:
         path: ./out
         name: ${{ matrix.name }}
         retention-days: 1
-  
+
   # Deployment job
   deploy:
     environment:
