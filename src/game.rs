@@ -24,7 +24,13 @@ impl Plugin for GamePlugin {
             0.3,
             TimerMode::Repeating,
         )))
-        .add_plugins((snake::SnakePlugin, meat::MeatPlugin))
+        .add_plugins((
+            snake::SnakePlugin,
+            meat::MeatPlugin,
+            bevy_spatial::AutomaticUpdate::<CollisionTracker>::new()
+                .with_spatial_ds(bevy_spatial::SpatialStructure::KDTree2)
+                .with_frequency(std::time::Duration::from_millis(1)),
+        ))
         .add_systems(OnEnter(GameState::InGame), on_game_start)
         .add_systems(OnExit(GameState::InGame), on_game_stop)
         .add_systems(
@@ -48,6 +54,13 @@ struct GameTickTimer(Timer);
 /// Used for delayed movement (after MovementStages:Calculate stage)
 #[derive(Component)]
 struct Movable(Option<Vec2>);
+
+/// Track collision with KDTree
+#[derive(Component, Default)]
+struct CollisionTracker;
+
+/// Alias for KDTree
+type NNTree = bevy_spatial::kdtree::KDTree2<CollisionTracker>;
 
 /// Handle game tick
 fn game_tick_timer(time: Res<Time>, mut timer: ResMut<GameTickTimer>) {
