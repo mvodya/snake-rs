@@ -13,3 +13,4 @@ opt-level = 3
 
 [dependencies]
 bevy = "0.13.0"
+bevy_spatial = "0.8.0"
