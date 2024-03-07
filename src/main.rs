@@ -16,10 +16,19 @@ fn main() {
     App::new()
         .insert_state(GameState::MainMenu)
         .add_plugins((
-            DefaultPlugins.set(bevy::log::LogPlugin {
-                level: bevy::log::Level::DEBUG,
-                ..default()
-            }),
+            DefaultPlugins
+                .set(bevy::window::WindowPlugin {
+                    primary_window: Some(bevy::window::Window {
+                        prevent_default_event_handling: true,
+                        canvas: Some("#snake-rs-canvas".into()),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(bevy::log::LogPlugin {
+                    level: bevy::log::Level::DEBUG,
+                    ..default()
+                }),
             debug::DebugPlugin,
             camera::CameraPlugin,
             game::GamePlugin,

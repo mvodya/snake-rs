@@ -1,7 +1,23 @@
 <!doctype html>
 <html lang="en">
 
-<body style="margin: 0px;">
+<body>
+  <style>
+    body {
+      margin: 0;
+      background: #262626;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      background-color: #262626;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+  </style>
   <script type="module">
     import init from './snake-rs.js'
 
@@ -11,6 +27,7 @@
       }
     });
   </script>
+  <canvas id="snake-rs-canvas"></canvas>
 </body>
 
 </html>
