@@ -85,7 +85,19 @@ fn move_all_movable(
 ) {
     if timer.0.just_finished() {
         for (mut movable, mut transform) in &mut movable {
-            if let Some(pos) = movable.0 {
+            if let Some(mut pos) = movable.0 {
+                // Portal on borders of world
+                let hx = crate::MAP_SIZE.x / 2.;
+                let hy = crate::MAP_SIZE.y / 2.;
+                pos.x = ((pos.x + hx) % crate::MAP_SIZE.x) - hx;
+                if pos.x < -hx {
+                    pos.x = hx - 1.;
+                }
+                pos.y = ((pos.y + hy) % crate::MAP_SIZE.y) - hy;
+                if pos.y < -hy {
+                    pos.y = hy - 1.;
+                }
+                // Make transform
                 transform.translation = pos.extend(0.);
                 movable.0 = None;
             }
