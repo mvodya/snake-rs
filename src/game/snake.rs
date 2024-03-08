@@ -3,12 +3,13 @@ use bevy_spatial::SpatialAccess;
 
 use crate::GameState;
 
-use super::{CollisionTracker, GameTickTimer, Movable, MovementStages, NNTree};
+use super::{meat::MeatEaten, CollisionTracker, GameTickTimer, Movable, MovementStages, NNTree};
 pub struct SnakePlugin;
 
 impl Plugin for SnakePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SnakeSpawnedEvent>()
+            .add_event::<SnakeCollisionEvent>()
             .add_event::<SnakeCatastrophicEvent>()
             .add_systems(OnEnter(GameState::InGame), spawn_snake)
             .add_systems(OnExit(GameState::InGame), despawn_all_snakes)
@@ -20,8 +21,14 @@ impl Plugin for SnakePlugin {
                         .in_set(MovementStages::Calculate)
                         .after(MovementStages::Input),
                     on_snake_spawn,
-                    (spawn_snake_body, snake_collision_with_snakes).after(MovementStages::Commit),
-                ),
+                    (
+                        spawn_snake_body,
+                        snake_collision,
+                        snake_collision_with_snakes,
+                    )
+                        .after(MovementStages::Commit),
+                )
+                    .run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -76,6 +83,14 @@ struct SnakeTail;
 /// Attention! Snake spawned without SnakeTail & SnakeRef
 #[derive(Event)]
 pub struct SnakeSpawnedEvent(Entity);
+
+/// Called when snake collides with other entity
+#[derive(Event)]
+pub struct SnakeCollisionEvent {
+    pub snake: Entity,
+    pub other: Entity,
+    pub position: Vec2,
+}
 
 /// Called when snake collides with other snake
 #[derive(Event)]
@@ -174,60 +189,62 @@ fn snake_input(mut snakes: Query<&mut Snake>, keys: Res<ButtonInput<KeyCode>>) {
 /// Creates new snake body element
 fn spawn_snake_body(
     mut commands: Commands,
-    timer: ResMut<GameTickTimer>,
+    mut ev_meat_eaten: EventReader<MeatEaten>,
     mut tails: Query<(Entity, &SnakeBody, &SnakeRef, Option<&Snake>, &Transform), With<SnakeTail>>,
     bodies: Query<&Transform, (With<SnakeBody>, Without<SnakeTail>)>,
 ) {
-    // TODO: Remove this
-    // Call spawn only when we have game tick
-    if !timer.0.just_finished() {
-        return;
-    };
+    for ev in ev_meat_eaten.read() {
+        for (entity, body, snake_ref, snake, transform) in  &mut tails {
+            // Check what snake requested
+            if ev.snake != snake_ref.0 {
+                continue;
+            }
 
-    for (entity, body, snake_ref, snake, transform) in &mut tails {
-        // Get current position
-        let current_pos = transform.translation;
+            // Get current position
+            let current_pos = transform.translation;
 
-        // Get next snake body entity
-        let delta;
-        if let Some(next_body) = body.0 {
-            // Search transformation component for next snake body
-            let next_body_pos = bodies.get(next_body).unwrap().translation;
-            // Calculate delta of current position and next position
-            delta = current_pos - next_body_pos;
-        } else if let Some(snake) = snake {
-            // Get delta from direction of snake head moving
-            delta = snake.0.get_vector().extend(0.) * Vec3::new(-1., -1., -1.);
-        } else {
-            continue;
+            // Get next snake body entity
+            let delta;
+            if let Some(next_body) = body.0 {
+                // Search transformation component for next snake body
+                let next_body_pos = bodies.get(next_body).unwrap().translation;
+                // Calculate delta of current position and next position
+                delta = current_pos - next_body_pos;
+            } else if let Some(snake) = snake {
+                // Get delta from direction of snake head moving
+                delta = snake.0.get_vector().extend(0.) * Vec3::new(-1., -1., -1.);
+            } else {
+                continue;
+            }
+            // Calculate new position for tail
+            let new_pos = current_pos + delta;
+
+            // Spawn new snake tail
+            let tail = commands.spawn((
+                SnakeBody(Some(entity)),
+                Movable(None),
+                SnakeRef(snake_ref.0),
+                SnakeTail,
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::rgb(1., 1., 1.),
+                        custom_size: Vec2::new(1., 1.).into(),
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: new_pos,
+                        ..default()
+                    },
+                    ..default()
+                },
+                CollisionTracker,
+            ));
+
+            debug!("Snake new tail! {:?}, {:?}", tail.id(), new_pos);
+
+            // Remove snake tail from pervious body
+            commands.entity(entity).remove::<SnakeTail>();
         }
-        // Calculate new position for tail
-        let new_pos = current_pos + delta;
-
-        // Spawn new snake tail
-        let tail = commands.spawn((
-            SnakeBody(Some(entity)),
-            Movable(None),
-            SnakeRef(snake_ref.0),
-            SnakeTail,
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::rgb(1., 1., 1.),
-                    custom_size: Vec2::new(1., 1.).into(),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: new_pos,
-                    ..default()
-                },
-                ..default()
-            },
-            CollisionTracker,
-        ));
-        debug!("Spawn new snake body {:?}", tail.id());
-
-        // Remove snake tail from pervious body
-        commands.entity(entity).remove::<SnakeTail>();
     }
 }
 
@@ -238,13 +255,12 @@ fn despawn_all_snakes(mut commands: Commands, query: Query<Entity, With<SnakeBod
     }
 }
 
-/// Check snake collision... with snakes?
-fn snake_collision_with_snakes(
-    mut ev_snake_catastrophic: EventWriter<SnakeCatastrophicEvent>,
+/// Check snake collision
+fn snake_collision(
+    mut ev_snake_collision: EventWriter<SnakeCollisionEvent>,
     timer: ResMut<GameTickTimer>,
     tree: Res<NNTree>,
     query: Query<(Entity, &Transform), With<Snake>>,
-    bodies: Query<(Entity, &Transform), (With<SnakeBody>, With<CollisionTracker>)>,
 ) {
     if timer.0.just_finished() {
         // Run search for all snakes (heads)
@@ -253,19 +269,37 @@ fn snake_collision_with_snakes(
             let pos = transform.translation.truncate();
             // Find nearest entities
             for (other_pos, other_entity) in tree.within_distance(pos, 1.) {
+                // Is entity is available
                 if let Some(other_entity) = other_entity {
                     // Do not react on self & react only on same position
-                    // check is other_entity is SnakeBody
-                    if entity != other_entity && pos == other_pos && bodies.contains(other_entity) {
-                        // Send event
-                        ev_snake_catastrophic.send(SnakeCatastrophicEvent(entity));
-                        debug!(
-                            "Snake {:?} collision detected at {:?} with {:?}",
-                            entity, pos, other_entity
-                        );
+                    if entity != other_entity && pos == other_pos {
+                        // Send collision event
+                        ev_snake_collision.send(SnakeCollisionEvent {
+                            snake: entity,
+                            other: other_entity,
+                            position: pos,
+                        });
                     }
                 }
             }
+        }
+    }
+}
+
+fn snake_collision_with_snakes(
+    mut ev_snake_collision: EventReader<SnakeCollisionEvent>,
+    mut ev_snake_catastrophic: EventWriter<SnakeCatastrophicEvent>,
+    bodies: Query<(Entity, &Transform), (With<SnakeBody>, With<CollisionTracker>)>,
+) {
+    for ev in ev_snake_collision.read() {
+        // Check is other_entity is SnakeBody
+        if bodies.contains(ev.other) {
+            // Send event
+            ev_snake_catastrophic.send(SnakeCatastrophicEvent(ev.snake));
+            debug!(
+                "Snake {:?} collision with snake body {:?} detected at {:?}",
+                ev.snake, ev.position, ev.other
+            );
         }
     }
 }
