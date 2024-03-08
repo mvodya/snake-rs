@@ -21,7 +21,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(GameTickTimer(Timer::from_seconds(
-            0.3,
+            0.2,
             TimerMode::Repeating,
         )))
         .add_plugins((
