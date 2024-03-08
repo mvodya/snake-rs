@@ -20,13 +20,9 @@ impl Plugin for SnakePlugin {
                     (move_snake_head, move_snake_body)
                         .in_set(MovementStages::Calculate)
                         .after(MovementStages::Input),
+                    spawn_snake_body,
                     on_snake_spawn,
-                    (
-                        spawn_snake_body,
-                        snake_collision,
-                        snake_collision_with_snakes,
-                    )
-                        .after(MovementStages::Commit),
+                    (snake_collision, snake_collision_with_snakes).after(MovementStages::Commit),
                 )
                     .run_if(in_state(GameState::InGame)),
             );
@@ -194,7 +190,7 @@ fn spawn_snake_body(
     bodies: Query<&Transform, (With<SnakeBody>, Without<SnakeTail>)>,
 ) {
     for ev in ev_meat_eaten.read() {
-        for (entity, body, snake_ref, snake, transform) in  &mut tails {
+        for (entity, body, snake_ref, snake, transform) in &mut tails {
             // Check what snake requested
             if ev.snake != snake_ref.0 {
                 continue;
