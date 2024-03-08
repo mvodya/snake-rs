@@ -62,8 +62,10 @@ fn meat_spawner(timer: ResMut<MeatSpawnerTickTimer>, meats: Query<&Meat>, mut co
 
     // Calculate position
     let mut rng = rand::thread_rng();
-    let x = rng.gen_range(-24..=24);
-    let y = rng.gen_range(-24..=24);
+    let hx = (crate::MAP_SIZE.x / 2.) as i32 - 1;
+    let hy = (crate::MAP_SIZE.y / 2.) as i32 - 1;
+    let x = rng.gen_range(-hx..=hx);
+    let y = rng.gen_range(-hy..=hy);
     let pos = Vec3::new(x as f32, y as f32, 0.);
 
     // Spawn

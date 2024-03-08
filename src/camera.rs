@@ -10,6 +10,6 @@ impl Plugin for CameraPlugin {
 
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(50.0);
+    camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(crate::MAP_SIZE.y);
     commands.spawn(camera_bundle);
 }
