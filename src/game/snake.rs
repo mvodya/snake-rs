@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use bevy::prelude::*;
 use bevy_spatial::SpatialAccess;
 
@@ -11,6 +13,7 @@ impl Plugin for SnakePlugin {
         app.add_event::<SnakeSpawnedEvent>()
             .add_event::<SnakeCollisionEvent>()
             .add_event::<SnakeCatastrophicEvent>()
+            .insert_resource(SnakeInputBuffer(VecDeque::new()))
             .add_systems(OnEnter(GameState::InGame), spawn_snake)
             .add_systems(OnExit(GameState::InGame), despawn_all_snakes)
             .add_systems(
@@ -88,6 +91,9 @@ pub struct SnakeCollisionEvent {
     pub position: Vec2,
 }
 
+#[derive(Resource)]
+struct SnakeInputBuffer(VecDeque<SnakeDirection>);
+
 /// Called when snake collides with other snake
 #[derive(Event)]
 pub struct SnakeCatastrophicEvent(Entity);
@@ -159,7 +165,13 @@ fn move_snake_body(
 }
 
 /// Player input handler
-fn snake_input(mut snakes: Query<&mut Snake>, keys: Res<ButtonInput<KeyCode>>) {
+fn snake_input(
+    mut snakes: Query<&mut Snake>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut buffer: ResMut<SnakeInputBuffer>,
+    timer: ResMut<GameTickTimer>,
+) {
+    // Get input
     let mut direction: Option<SnakeDirection> = None;
     if keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW]) {
         direction = SnakeDirection::Up.into();
@@ -173,10 +185,21 @@ fn snake_input(mut snakes: Query<&mut Snake>, keys: Res<ButtonInput<KeyCode>>) {
     if keys.any_just_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
         direction = SnakeDirection::Left.into();
     }
-    if let Some(direction) = direction {
-        for mut snake in &mut snakes {
-            if !snake.0.is_oposite(&direction) {
-                snake.0 = direction.clone();
+
+    // Save input to buffer
+    if buffer.0.len() < 2 {
+        if let Some(direction) = direction {
+            buffer.0.push_back(direction.clone());
+        }
+    }
+
+    // Apply movement from buffer
+    if timer.0.just_finished() {
+        if let Some(direction) = buffer.0.pop_front() {
+            for mut snake in &mut snakes {
+                if !snake.0.is_oposite(&direction) {
+                    snake.0 = direction.clone();
+                }
             }
         }
     }
