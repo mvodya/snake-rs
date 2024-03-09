@@ -64,8 +64,20 @@ struct CollisionTracker;
 type NNTree = bevy_spatial::kdtree::KDTree2<CollisionTracker>;
 
 /// Handle game tick
-fn game_tick_timer(time: Res<Time>, mut timer: ResMut<GameTickTimer>) {
-    timer.0.tick(time.delta());
+fn game_tick_timer(
+    time: Res<Time>,
+    mut timer: ResMut<GameTickTimer>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    // Speed up movement on shift key pressed
+    let speed_up;
+    if keys.any_pressed([KeyCode::ShiftLeft]) {
+        speed_up = 2;
+    } else {
+        speed_up = 1;
+    }
+    // Update game tick
+    timer.0.tick(time.delta() * speed_up);
 }
 
 /// When InGame state enter
