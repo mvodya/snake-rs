@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::GameState;
 
+mod interface;
 mod meat;
 mod snake;
 
@@ -27,6 +28,7 @@ impl Plugin for GamePlugin {
         .add_plugins((
             snake::SnakePlugin,
             meat::MeatPlugin,
+            interface::GameInterfacePlugin,
             bevy_spatial::AutomaticUpdate::<CollisionTracker>::new()
                 .with_spatial_ds(bevy_spatial::SpatialStructure::KDTree2)
                 .with_frequency(std::time::Duration::from_millis(1)),
