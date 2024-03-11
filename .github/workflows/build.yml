@@ -38,6 +38,8 @@ jobs:
       run: cargo build --release --target wasm32-unknown-unknown --verbose
     - name: Run wasm-bindgen
       run: wasm-bindgen --no-typescript --target web --out-dir ./web/ --out-name "${PROJECT_NAME}" ./target/wasm32-unknown-unknown/release/${PROJECT_NAME}.wasm
+    - name: Copy assets
+      run: cp -r ./assets ./web/assets
     - name: Upload binaries to artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -49,7 +51,7 @@ jobs:
       with:
         path: ./web
 
-  # Build Linux target job
+  # Build Windows/Linux/MacOS target job
   build:
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -99,6 +101,8 @@ jobs:
 
         mkdir -p ./out
         mv "${BIN_OUTPUT}" "./out/${BIN_RELEASE}"
+    - name: Copy assets
+      run: cp -r ./assets ./out/assets
     - name: Upload binaries to artifacts
       uses: actions/upload-artifact@v3
       with:
