@@ -5,6 +5,8 @@ use bevy::{
 
 use crate::GameState;
 
+use super::PlayerStats;
+
 pub struct GameInterfacePlugin;
 
 impl Plugin for GameInterfacePlugin {
@@ -13,7 +15,7 @@ impl Plugin for GameInterfacePlugin {
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
-                (fps_text_update).run_if(in_state(GameState::InGame)),
+                (fps_text_update, score_text_update).run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -89,5 +91,11 @@ fn fps_text_update(diagnostics: Res<DiagnosticsStore>, mut query: Query<&mut Tex
                 text.sections[1].value = format!("{value:.2}");
             }
         }
+    }
+}
+
+fn score_text_update(stats: Res<PlayerStats>, mut query: Query<&mut Text, With<ScoreText>>) {
+    for mut text in &mut query {
+        text.sections[1].value = format!("{}", stats.score);
     }
 }

@@ -25,6 +25,7 @@ impl Plugin for GamePlugin {
             0.2,
             TimerMode::Repeating,
         )))
+        .insert_resource(PlayerStats::default())
         .add_plugins((
             snake::SnakePlugin,
             meat::MeatPlugin,
@@ -51,6 +52,24 @@ impl Plugin for GamePlugin {
 /// Game tick timer
 #[derive(Resource)]
 struct GameTickTimer(Timer);
+
+/// Player statistics
+#[derive(Resource, Clone, Copy)]
+struct PlayerStats {
+    pub score: u32,
+    pub food_eaten: u32,
+    pub distance_traveled: u32,
+}
+
+impl Default for PlayerStats {
+    fn default() -> Self {
+        Self {
+            score: 0,
+            food_eaten: 0,
+            distance_traveled: 0,
+        }
+    }
+}
 
 /// Movable component
 ///
@@ -83,8 +102,10 @@ fn game_tick_timer(
 }
 
 /// When InGame state enter
-fn on_game_start() {
+fn on_game_start(mut stats: ResMut<PlayerStats>) {
     debug!("Init game");
+    // Reset player statistics
+    *stats = PlayerStats::default();
 }
 
 /// When InGame state exit

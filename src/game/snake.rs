@@ -5,7 +5,9 @@ use bevy_spatial::SpatialAccess;
 
 use crate::GameState;
 
-use super::{meat::MeatEaten, CollisionTracker, GameTickTimer, Movable, MovementStages, NNTree};
+use super::{
+    meat::MeatEaten, CollisionTracker, GameTickTimer, Movable, MovementStages, NNTree, PlayerStats,
+};
 pub struct SnakePlugin;
 
 impl Plugin for SnakePlugin {
@@ -25,6 +27,7 @@ impl Plugin for SnakePlugin {
                         .after(MovementStages::Input),
                     spawn_snake_body,
                     on_snake_spawn,
+                    player_score_collector,
                     (snake_collision, snake_collision_with_snakes).after(MovementStages::Commit),
                 )
                     .run_if(in_state(GameState::InGame)),
@@ -153,6 +156,7 @@ fn move_snake_body(
     mut movable_bodies: Query<(&mut Movable, &SnakeBody), Without<Snake>>,
     bodies: Query<&Transform, With<SnakeBody>>,
     timer: ResMut<GameTickTimer>,
+    mut stats: ResMut<PlayerStats>,
 ) {
     if timer.0.just_finished() {
         for (mut movable, body) in &mut movable_bodies {
@@ -161,6 +165,8 @@ fn move_snake_body(
                 movable.0 = Some(next_pos.truncate());
             }
         }
+        // Update stats
+        stats.distance_traveled += 1;
     }
 }
 
@@ -264,6 +270,16 @@ fn spawn_snake_body(
             // Remove snake tail from pervious body
             commands.entity(entity).remove::<SnakeTail>();
         }
+    }
+}
+
+fn player_score_collector(
+    mut ev_meat_eaten: EventReader<MeatEaten>,
+    mut stats: ResMut<PlayerStats>,
+) {
+    for ev in ev_meat_eaten.read() {
+        stats.score += 50;
+        stats.food_eaten += 1;
     }
 }
 
