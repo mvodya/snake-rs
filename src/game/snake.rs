@@ -277,7 +277,7 @@ fn player_score_collector(
     mut ev_meat_eaten: EventReader<MeatEaten>,
     mut stats: ResMut<PlayerStats>,
 ) {
-    for ev in ev_meat_eaten.read() {
+    for _ in ev_meat_eaten.read() {
         stats.score += 50;
         stats.food_eaten += 1;
     }
