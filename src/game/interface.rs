@@ -12,13 +12,17 @@ pub struct GameInterfacePlugin;
 impl Plugin for GameInterfacePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin)
-            .add_systems(Startup, setup)
+            .add_systems(OnEnter(GameState::InGame), setup)
+            .add_systems(OnExit(GameState::InGame), despawn_all_ui)
             .add_systems(
                 Update,
                 (fps_text_update, score_text_update).run_if(in_state(GameState::InGame)),
             );
     }
 }
+
+#[derive(Component)]
+struct HUD;
 
 #[derive(Component)]
 struct FpsText;
@@ -53,6 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             left: Val::Px(10.0),
             ..default()
         }),
+        HUD,
         ScoreText,
     ));
 
@@ -79,8 +84,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             right: Val::Px(10.0),
             ..default()
         }),
+        HUD,
         FpsText,
     ));
+}
+
+fn despawn_all_ui(mut commands: Commands, query: Query<Entity, With<HUD>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn fps_text_update(diagnostics: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {
