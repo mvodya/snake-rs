@@ -23,7 +23,8 @@ impl Plugin for MeatPlugin {
                 )
                     .after(MovementStages::Commit)
                     .run_if(in_state(GameState::InGame)),
-            );
+            )
+            .add_systems(OnExit(GameState::InGame), despawn_all_meats);
     }
 }
 
@@ -108,5 +109,12 @@ fn snake_collision_with_meat(
             // Remove meat
             commands.entity(ev.other).despawn();
         }
+    }
+}
+
+/// Remove all meats
+fn despawn_all_meats(mut commands: Commands, query: Query<Entity, With<Meat>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
     }
 }
