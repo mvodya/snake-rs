@@ -25,6 +25,7 @@ impl Plugin for SnakePlugin {
                     (move_snake_head, move_snake_body)
                         .in_set(MovementStages::Calculate)
                         .after(MovementStages::Input),
+                    snake_fat_animation_spawn,
                     spawn_snake_body,
                     on_snake_spawn,
                     player_score_collector,
@@ -88,7 +89,10 @@ struct SnakeTail;
 
 // Used for making snake fat spread animation after eating meat
 #[derive(Component)]
-struct SnakeFatAnimator(i32);
+struct SnakeFatAnimator {
+    step: i32,
+    spawn: bool,
+}
 
 /// Called when snake head spawned
 ///
@@ -224,10 +228,20 @@ fn snake_input(
     }
 }
 
-/// Creates new snake body element
+/// Add snake fat spread for snake head
+fn snake_fat_animation_spawn(mut commands: Commands, mut ev_meat_eaten: EventReader<MeatEaten>) {
+    for ev in ev_meat_eaten.read() {
+        // Add animator for snake head
+        commands.entity(ev.snake).insert(SnakeFatAnimator {
+            step: SNAKE_FAT_STEPS,
+            spawn: true,
+        });
+    }
+}
+
+/// Creates new snake body element for tail with snake fat spread component
 fn spawn_snake_body(
     mut commands: Commands,
-    mut ev_meat_eaten: EventReader<MeatEaten>,
     mut tails: Query<
         (
             Entity,
@@ -235,74 +249,75 @@ fn spawn_snake_body(
             &SnakeRef,
             Option<&Snake>,
             &Transform,
+            &mut SnakeFatAnimator,
         ),
-        With<SnakeTail>,
+        (With<SnakeTail>, With<SnakeFatAnimator>),
     >,
     bodies: Query<&Transform, (With<SnakeBody>, Without<SnakeTail>)>,
 ) {
-    for ev in ev_meat_eaten.read() {
-        for (entity, mut body, snake_ref, snake, transform) in &mut tails {
-            // Check what snake requested
-            if ev.snake != snake_ref.0 {
-                continue;
-            }
+    for (entity, mut body, snake_ref, snake, transform, mut spread) in &mut tails {
+        // Spawn only for max fat value
+        if !spread.spawn {
+            continue;
+        }
+        spread.spawn = false;
 
-            // Get current position
-            let current_pos = transform.translation;
+        // Get current position
+        let current_pos = transform.translation;
 
-            // Get next snake body entity
-            let delta;
-            if let Some(next_body) = body.forward {
-                // Search transformation component for next snake body
-                let next_body_pos = bodies.get(next_body).unwrap().translation;
-                // Calculate delta of current position and next position
-                delta = current_pos - next_body_pos;
-            } else if let Some(snake) = snake {
-                // Get delta from direction of snake head moving
-                delta = snake.0.get_vector().extend(0.) * Vec3::new(-1., -1., -1.);
-            } else {
-                continue;
-            }
-            // Calculate new position for tail
-            let new_pos = current_pos + delta;
+        // Get next snake body entity
+        let delta;
+        if let Some(next_body) = body.forward {
+            // Search transformation component for next snake body
+            let next_body_pos = bodies.get(next_body).unwrap().translation;
+            // Calculate delta of current position and next position
+            delta = current_pos - next_body_pos;
+        } else if let Some(snake) = snake {
+            // Get delta from direction of snake head moving
+            delta = snake.0.get_vector().extend(0.) * Vec3::new(-1., -1., -1.);
+        } else {
+            continue;
+        }
+        // Calculate new position for tail
+        let new_pos = current_pos + delta;
 
-            // Spawn new snake tail
-            let tail = commands.spawn((
-                SnakeBody {
-                    forward: Some(entity),
-                    backward: None,
-                },
-                Movable(None),
-                SnakeRef(snake_ref.0),
-                SnakeTail,
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: Color::rgb(1., 1., 1.),
-                        custom_size: Vec2::new(1., 1.).into(),
-                        ..default()
-                    },
-                    transform: Transform {
-                        translation: new_pos,
-                        ..default()
-                    },
+        // Spawn new snake tail
+        let tail = commands.spawn((
+            SnakeBody {
+                forward: Some(entity),
+                backward: None,
+            },
+            Movable(None),
+            SnakeRef(snake_ref.0),
+            SnakeTail,
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::rgb(1., 1., 1.),
+                    custom_size: Vec2::new(1., 1.).into(),
                     ..default()
                 },
-                CollisionTracker,
-            ));
+                transform: Transform {
+                    translation: new_pos,
+                    ..default()
+                },
+                ..default()
+            },
+            SnakeFatAnimator {
+                step: spread.step,
+                spawn: false,
+            },
+            CollisionTracker,
+        ));
 
-            debug!("Snake new tail! {:?}, {:?}", tail.id(), new_pos);
+        spread.step -= 1;
 
-            // Set backward for pervious body
-            body.backward = Some(tail.id());
+        debug!("Snake new tail! {:?}, {:?}", tail.id(), new_pos);
 
-            // Remove snake tail from pervious body
-            commands.entity(entity).remove::<SnakeTail>();
+        // Set backward for pervious body
+        body.backward = Some(tail.id());
 
-            // Add animator for snake head
-            commands
-                .entity(snake_ref.0)
-                .insert(SnakeFatAnimator(SNAKE_FAT_STEPS));
-        }
+        // Remove snake tail from pervious body
+        commands.entity(entity).remove::<SnakeTail>();
     }
 }
 
@@ -372,35 +387,44 @@ fn snake_collision_with_snakes(
     }
 }
 
+fn body_scale_calc(step: i32) -> f32 {
+    1. + ((step as f32 / SNAKE_FAT_STEPS as f32) / 3.)
+}
+
 fn snake_fat_spread_animation(
     mut commands: Commands,
-    mut query: Query<(Entity, &SnakeBody, &mut Transform, &mut SnakeFatAnimator), With<SnakeFatAnimator>>,
+    mut query: Query<
+        (Entity, &SnakeBody, &mut Transform, &mut SnakeFatAnimator),
+        With<SnakeFatAnimator>,
+    >,
     timer: ResMut<GameTickTimer>,
 ) {
     if timer.0.just_finished() {
         for (entity, body, mut transform, mut animator) in &mut query {
             // Spread fat animator
-            if animator.0 >= SNAKE_FAT_STEPS {
+            if animator.spawn {
                 if let Some(backward) = body.backward {
-                    commands
-                        .entity(backward)
-                        .insert(SnakeFatAnimator(SNAKE_FAT_STEPS));
+                    commands.entity(backward).insert(SnakeFatAnimator {
+                        step: SNAKE_FAT_STEPS,
+                        spawn: true,
+                    });
+                    animator.spawn = false;
                 }
             }
 
             // Change zoom
-            let zoom = 1. + ((animator.0 as f32 / SNAKE_FAT_STEPS as f32) / 2.);
+            let zoom = body_scale_calc(animator.step);
             transform.scale.x = zoom;
             transform.scale.y = zoom;
 
             // Remove animator from body, if step is 0
-            if animator.0 <= 0 {
+            if animator.step <= 0 {
                 commands.entity(entity).remove::<SnakeFatAnimator>();
                 continue;
             }
 
             // Step down animator
-            animator.0 -= 1;
+            animator.step -= 1;
         }
     }
 }
