@@ -72,9 +72,14 @@ struct SnakeRef(Entity);
 
 /// Snake body
 ///
-/// Contains next snake body element
+/// Contains next and pervious snake body element
+///
+/// forward <-- HEAD <-- BODY[] <-- TAIL <-- backward
 #[derive(Component)]
-struct SnakeBody(Option<Entity>);
+struct SnakeBody {
+    forward: Option<Entity>,
+    backward: Option<Entity>,
+}
 
 /// Marker for last snake element
 #[derive(Component)]
@@ -106,7 +111,10 @@ fn spawn_snake(mut ev_snake_spawned: EventWriter<SnakeSpawnedEvent>, mut command
     // Spawn snake
     let snake = commands.spawn((
         Snake(SnakeDirection::Right),
-        SnakeBody(None),
+        SnakeBody {
+            forward: None,
+            backward: None,
+        },
         Movable(None),
         SpriteBundle {
             sprite: Sprite {
@@ -160,7 +168,7 @@ fn move_snake_body(
 ) {
     if timer.0.just_finished() {
         for (mut movable, body) in &mut movable_bodies {
-            if let Some(next_body) = body.0 {
+            if let Some(next_body) = body.forward {
                 let next_pos = bodies.get(next_body).unwrap().translation;
                 movable.0 = Some(next_pos.truncate());
             }
@@ -215,11 +223,20 @@ fn snake_input(
 fn spawn_snake_body(
     mut commands: Commands,
     mut ev_meat_eaten: EventReader<MeatEaten>,
-    mut tails: Query<(Entity, &SnakeBody, &SnakeRef, Option<&Snake>, &Transform), With<SnakeTail>>,
+    mut tails: Query<
+        (
+            Entity,
+            &mut SnakeBody,
+            &SnakeRef,
+            Option<&Snake>,
+            &Transform,
+        ),
+        With<SnakeTail>,
+    >,
     bodies: Query<&Transform, (With<SnakeBody>, Without<SnakeTail>)>,
 ) {
     for ev in ev_meat_eaten.read() {
-        for (entity, body, snake_ref, snake, transform) in &mut tails {
+        for (entity, mut body, snake_ref, snake, transform) in &mut tails {
             // Check what snake requested
             if ev.snake != snake_ref.0 {
                 continue;
@@ -230,7 +247,7 @@ fn spawn_snake_body(
 
             // Get next snake body entity
             let delta;
-            if let Some(next_body) = body.0 {
+            if let Some(next_body) = body.forward {
                 // Search transformation component for next snake body
                 let next_body_pos = bodies.get(next_body).unwrap().translation;
                 // Calculate delta of current position and next position
@@ -246,7 +263,10 @@ fn spawn_snake_body(
 
             // Spawn new snake tail
             let tail = commands.spawn((
-                SnakeBody(Some(entity)),
+                SnakeBody {
+                    forward: Some(entity),
+                    backward: None,
+                },
                 Movable(None),
                 SnakeRef(snake_ref.0),
                 SnakeTail,
@@ -266,6 +286,9 @@ fn spawn_snake_body(
             ));
 
             debug!("Snake new tail! {:?}, {:?}", tail.id(), new_pos);
+
+            // Set backward for pervious body
+            body.backward = Some(tail.id());
 
             // Remove snake tail from pervious body
             commands.entity(entity).remove::<SnakeTail>();
