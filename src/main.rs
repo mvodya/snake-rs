@@ -6,6 +6,7 @@ mod game;
 mod menu;
 
 const MAP_SIZE: Vec2 = Vec2::new(80., 50.);
+const SNAKE_FAT_STEPS: i32 = 5;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States)]
 enum GameState {

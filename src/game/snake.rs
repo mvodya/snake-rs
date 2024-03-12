@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use bevy::prelude::*;
 use bevy_spatial::SpatialAccess;
 
-use crate::GameState;
+use crate::{GameState, SNAKE_FAT_STEPS};
 
 use super::{
     meat::MeatEaten, CollisionTracker, GameTickTimer, Movable, MovementStages, NNTree, PlayerStats,
@@ -28,6 +28,7 @@ impl Plugin for SnakePlugin {
                     spawn_snake_body,
                     on_snake_spawn,
                     player_score_collector,
+                    snake_fat_spread_animation,
                     (snake_collision, snake_collision_with_snakes).after(MovementStages::Commit),
                 )
                     .run_if(in_state(GameState::InGame)),
@@ -84,6 +85,10 @@ struct SnakeBody {
 /// Marker for last snake element
 #[derive(Component)]
 struct SnakeTail;
+
+// Used for making snake fat spread animation after eating meat
+#[derive(Component)]
+struct SnakeFatAnimator(i32);
 
 /// Called when snake head spawned
 ///
@@ -292,6 +297,11 @@ fn spawn_snake_body(
 
             // Remove snake tail from pervious body
             commands.entity(entity).remove::<SnakeTail>();
+
+            // Add animator for snake head
+            commands
+                .entity(snake_ref.0)
+                .insert(SnakeFatAnimator(SNAKE_FAT_STEPS));
         }
     }
 }
@@ -358,6 +368,39 @@ fn snake_collision_with_snakes(
                 "Snake {:?} collision with snake body {:?} detected at {:?}",
                 ev.snake, ev.position, ev.other
             );
+        }
+    }
+}
+
+fn snake_fat_spread_animation(
+    mut commands: Commands,
+    mut query: Query<(Entity, &SnakeBody, &mut Transform, &mut SnakeFatAnimator), With<SnakeFatAnimator>>,
+    timer: ResMut<GameTickTimer>,
+) {
+    if timer.0.just_finished() {
+        for (entity, body, mut transform, mut animator) in &mut query {
+            // Spread fat animator
+            if animator.0 >= SNAKE_FAT_STEPS {
+                if let Some(backward) = body.backward {
+                    commands
+                        .entity(backward)
+                        .insert(SnakeFatAnimator(SNAKE_FAT_STEPS));
+                }
+            }
+
+            // Change zoom
+            let zoom = 1. + ((animator.0 as f32 / SNAKE_FAT_STEPS as f32) / 2.);
+            transform.scale.x = zoom;
+            transform.scale.y = zoom;
+
+            // Remove animator from body, if step is 0
+            if animator.0 <= 0 {
+                commands.entity(entity).remove::<SnakeFatAnimator>();
+                continue;
+            }
+
+            // Step down animator
+            animator.0 -= 1;
         }
     }
 }
