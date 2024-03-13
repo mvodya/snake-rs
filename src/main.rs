@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 mod camera;
-mod debug;
 mod game;
 mod menu;
 
@@ -32,7 +31,6 @@ fn main() {
                     level: bevy::log::Level::DEBUG,
                     ..default()
                 }),
-            debug::DebugPlugin,
             camera::CameraPlugin,
             game::GamePlugin,
             menu::MenuPlugin,
