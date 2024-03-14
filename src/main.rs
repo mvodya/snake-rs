@@ -8,7 +8,7 @@ const MAP_SIZE: Vec2 = Vec2::new(80., 50.);
 const SNAKE_FAT_STEPS: i32 = 5;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States)]
-enum GameState {
+pub enum GameState {
     MainMenu,
     InGame,
     GameOver,
@@ -52,11 +52,11 @@ fn test_switch_state(
     mut next_state: ResMut<NextState<GameState>>,
     game_state: Res<State<GameState>>,
 ) {
-    if timer.0.tick(time.delta()).just_finished() {
-        match game_state.get() {
-            GameState::MainMenu => next_state.set(GameState::InGame),
-            GameState::InGame => (),
-            GameState::GameOver => next_state.set(GameState::MainMenu),
-        }
-    }
+    // if timer.0.tick(time.delta()).just_finished() {
+    //     match game_state.get() {
+    //         GameState::MainMenu => next_state.set(GameState::InGame),
+    //         GameState::InGame => (),
+    //         GameState::GameOver => next_state.set(GameState::MainMenu),
+    //     }
+    // }
 }
