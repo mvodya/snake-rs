@@ -16,6 +16,10 @@ impl Plugin for SnakePlugin {
             .add_event::<SnakeCollisionEvent>()
             .add_event::<SnakeCatastrophicEvent>()
             .insert_resource(SnakeInputBuffer(VecDeque::new()))
+            .insert_resource(SnakeAnimationTickTimer(Timer::from_seconds(
+                0.05,
+                TimerMode::Repeating,
+            )))
             .add_systems(OnEnter(GameState::InGame), spawn_snake)
             .add_systems(OnExit(GameState::InGame), despawn_all_snakes)
             .add_systems(
@@ -28,6 +32,7 @@ impl Plugin for SnakePlugin {
                     spawn_snake_body,
                     on_snake_spawn,
                     player_score_collector,
+                    snake_animation_tick_timer,
                     snake_fat_spread_animation,
                     (snake_collision, snake_collision_with_snakes).after(MovementStages::Commit),
                 )
@@ -104,8 +109,13 @@ pub struct SnakeCollisionEvent {
     pub position: Vec2,
 }
 
+/// Store inputs and apply them in next frame
 #[derive(Resource)]
 struct SnakeInputBuffer(VecDeque<SnakeDirection>);
+
+/// Timer for snake fat animation
+#[derive(Resource)]
+struct SnakeAnimationTickTimer(Timer);
 
 /// Called when snake collides with other snake
 #[derive(Event)]
@@ -397,10 +407,18 @@ fn snake_collision_with_snakes(
     }
 }
 
+fn snake_animation_tick_timer(time: Res<Time>, mut timer: ResMut<SnakeAnimationTickTimer>) {
+    // Update tick
+    timer.0.tick(time.delta());
+}
+
 fn snake_fat_spread_animation(
     mut commands: Commands,
-    mut query: Query<(Entity, &SnakeBody, &mut Transform, &mut SnakeFatAnimator), With<SnakeFatAnimator>>,
-    timer: ResMut<GameTickTimer>,
+    mut query: Query<
+        (Entity, &SnakeBody, &mut Transform, &mut SnakeFatAnimator),
+        With<SnakeFatAnimator>,
+    >,
+    timer: ResMut<SnakeAnimationTickTimer>,
 ) {
     if timer.0.just_finished() {
         for (entity, body, mut transform, mut animator) in &mut query {
