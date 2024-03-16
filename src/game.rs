@@ -55,7 +55,7 @@ struct GameTickTimer(Timer);
 
 /// Player statistics
 #[derive(Resource, Clone, Copy)]
-struct PlayerStats {
+pub struct PlayerStats {
     pub score: u32,
     pub food_eaten: u32,
     pub distance_traveled: u32,
