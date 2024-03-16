@@ -93,7 +93,7 @@ struct SnakeTail;
 
 // Used for making snake fat spread animation after eating meat
 #[derive(Component)]
-struct SnakeFatAnimator(i32);
+struct SnakeFatAnimator(i32, Color);
 
 /// Called when snake head spawned
 ///
@@ -336,7 +336,7 @@ fn spawn_snake_body(
             // Add animator for snake head
             commands
                 .entity(snake_ref.0)
-                .insert(SnakeFatAnimator(SNAKE_FAT_STEPS));
+                .insert(SnakeFatAnimator(SNAKE_FAT_STEPS, ev.color));
         }
     }
 }
@@ -415,19 +415,25 @@ fn snake_animation_tick_timer(time: Res<Time>, mut timer: ResMut<SnakeAnimationT
 fn snake_fat_spread_animation(
     mut commands: Commands,
     mut query: Query<
-        (Entity, &SnakeBody, &mut Transform, &mut SnakeFatAnimator),
+        (
+            Entity,
+            &SnakeBody,
+            &mut Transform,
+            &mut Sprite,
+            &mut SnakeFatAnimator,
+        ),
         With<SnakeFatAnimator>,
     >,
     timer: ResMut<SnakeAnimationTickTimer>,
 ) {
     if timer.0.just_finished() {
-        for (entity, body, mut transform, mut animator) in &mut query {
+        for (entity, body, mut transform, mut sprite, mut animator) in &mut query {
             // Spread fat animator
             if animator.0 >= SNAKE_FAT_STEPS {
                 if let Some(backward) = body.backward {
                     commands
                         .entity(backward)
-                        .insert(SnakeFatAnimator(SNAKE_FAT_STEPS));
+                        .insert(SnakeFatAnimator(SNAKE_FAT_STEPS, animator.1));
                 }
             }
 
@@ -435,6 +441,14 @@ fn snake_fat_spread_animation(
             let zoom = 1. + ((animator.0 as f32 / SNAKE_FAT_STEPS as f32) / 2.);
             transform.scale.x = zoom;
             transform.scale.y = zoom;
+
+            // Change color
+            let lightness =
+                0.4 + (0.6 * ((SNAKE_FAT_STEPS - animator.0) as f32 / SNAKE_FAT_STEPS as f32));
+            sprite.color.set_h(animator.1.h());
+            sprite.color.set_s(animator.1.s());
+            sprite.color.set_l(lightness);
+            sprite.color.set_a(1.);
 
             // Remove animator from body, if step is 0
             if animator.0 <= 0 {

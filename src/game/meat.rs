@@ -40,6 +40,7 @@ struct MeatSpawnerTickTimer(Timer);
 pub struct MeatEaten {
     pub snake: Entity,
     pub position: Vec2,
+    pub color: Color,
 }
 
 /// Handle game tick
@@ -98,10 +99,12 @@ fn snake_collision_with_meat(
     for ev in ev_snake_collision.read() {
         // Check is other_entity is SnakeBody
         if meats.contains(ev.other) {
+            let meat = meats.get(ev.other).unwrap();
             // Send event
             ev_meat_eaten.send(MeatEaten {
                 snake: ev.snake,
                 position: ev.position,
+                color: meat.0,
             });
             debug!(
                 "Snake {:?} eats meat {:?} at {:?}",
