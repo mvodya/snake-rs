@@ -112,8 +112,12 @@ fn animate_logo_text(
     }
 }
 
-fn anykey_check(mut next_state: ResMut<NextState<GameState>>, keys: Res<ButtonInput<KeyCode>>) {
-    if keys.get_just_pressed().len() > 0 {
+fn anykey_check(
+    mut next_state: ResMut<NextState<GameState>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    gamepad_inputs: Res<ButtonInput<GamepadButton>>,
+) {
+    if keys.get_just_pressed().len() > 0 || gamepad_inputs.get_just_pressed().len() > 0 {
         next_state.set(GameState::InGame);
     }
 }
@@ -206,12 +210,13 @@ fn anykey_check_game_over(
     query: Query<&GameOverText>,
     mut next_state: ResMut<NextState<GameState>>,
     keys: Res<ButtonInput<KeyCode>>,
+    gamepad_inputs: Res<ButtonInput<GamepadButton>>,
 ) {
     for timer in &query {
         if timer.0 < 1.5 {
             continue;
         }
-        if keys.get_just_pressed().len() > 0 {
+        if keys.get_just_pressed().len() > 0 || gamepad_inputs.get_just_pressed().len() > 0 {
             next_state.set(GameState::InGame);
         }
     }

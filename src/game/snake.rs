@@ -191,6 +191,8 @@ fn move_snake_body(
 fn snake_input(
     mut snakes: Query<&mut Snake>,
     keys: Res<ButtonInput<KeyCode>>,
+    gamepads: Res<Gamepads>,
+    gamepad_inputs: Res<ButtonInput<GamepadButton>>,
     mut buffer: ResMut<SnakeInputBuffer>,
     timer: ResMut<GameTickTimer>,
 ) {
@@ -207,6 +209,29 @@ fn snake_input(
     }
     if keys.any_just_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
         direction = SnakeDirection::Left.into();
+    }
+
+    // Get gamepad input
+    for gamepad in gamepads.iter() {
+        if gamepad_inputs.any_just_pressed([GamepadButton::new(gamepad, GamepadButtonType::DPadUp)])
+        {
+            direction = SnakeDirection::Up.into();
+        }
+        if gamepad_inputs
+            .any_just_pressed([GamepadButton::new(gamepad, GamepadButtonType::DPadDown)])
+        {
+            direction = SnakeDirection::Down.into();
+        }
+        if gamepad_inputs
+            .any_just_pressed([GamepadButton::new(gamepad, GamepadButtonType::DPadRight)])
+        {
+            direction = SnakeDirection::Right.into();
+        }
+        if gamepad_inputs
+            .any_just_pressed([GamepadButton::new(gamepad, GamepadButtonType::DPadLeft)])
+        {
+            direction = SnakeDirection::Left.into();
+        }
     }
 
     // Save input to buffer

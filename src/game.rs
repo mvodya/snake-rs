@@ -89,10 +89,30 @@ fn game_tick_timer(
     time: Res<Time>,
     mut timer: ResMut<GameTickTimer>,
     keys: Res<ButtonInput<KeyCode>>,
+    gamepads: Res<Gamepads>,
+    gamepad_inputs: Res<ButtonInput<GamepadButton>>,
 ) {
-    // Speed up movement on shift key pressed
-    let speed_up;
+    let mut request_speed_up = false;
+    // Get keyboard input
     if keys.any_pressed([KeyCode::ShiftLeft]) {
+        request_speed_up = true;
+    }
+
+    // Get gamepad input
+    for gamepad in gamepads.iter() {
+        if gamepad_inputs.any_pressed([
+            GamepadButton::new(gamepad, GamepadButtonType::RightThumb),
+            GamepadButton::new(gamepad, GamepadButtonType::RightTrigger),
+            GamepadButton::new(gamepad, GamepadButtonType::RightTrigger2),
+            GamepadButton::new(gamepad, GamepadButtonType::West),
+        ]) {
+            request_speed_up = true;
+        }
+    }
+
+    // Speed up movement
+    let speed_up;
+    if request_speed_up {
         speed_up = 2;
     } else {
         speed_up = 1;
