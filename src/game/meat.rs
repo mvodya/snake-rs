@@ -29,7 +29,7 @@ impl Plugin for MeatPlugin {
 }
 
 #[derive(Component)]
-struct Meat;
+struct Meat(Color);
 
 // Meat spawn dealy
 #[derive(Resource)]
@@ -68,13 +68,14 @@ fn meat_spawner(timer: ResMut<MeatSpawnerTickTimer>, meats: Query<&Meat>, mut co
     let x = rng.gen_range(-hx..=hx);
     let y = rng.gen_range(-hy..=hy);
     let pos = Vec3::new(x as f32, y as f32, 0.);
+    let color = Color::hsl(rng.gen_range(0. ..=360.), 0.9, 0.4);
 
     // Spawn
     commands.spawn((
-        Meat,
+        Meat(color),
         SpriteBundle {
             sprite: Sprite {
-                color: Color::rgb(0.5, 0.5, 1.),
+                color: color,
                 custom_size: Vec2::new(1., 1.).into(),
                 ..default()
             },
