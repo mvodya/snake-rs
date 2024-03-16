@@ -22,6 +22,8 @@ fn main() {
                 primary_window: Some(bevy::window::Window {
                     prevent_default_event_handling: true,
                     canvas: Some("#snake-rs-canvas".into()),
+                    name: Some("snake-rs.app".into()),
+                    title: "snake-rs".into(),
                     ..default()
                 }),
                 ..default()
