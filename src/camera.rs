@@ -1,3 +1,6 @@
+// Snake-rs
+// Mark Vodyanitskiy (@mvodya) 2024
+
 use bevy::{prelude::*, render::camera::ScalingMode};
 
 pub struct CameraPlugin;

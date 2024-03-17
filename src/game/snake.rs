@@ -1,3 +1,6 @@
+// Snake-rs
+// Mark Vodyanitskiy (@mvodya) 2024
+
 use std::collections::VecDeque;
 
 use bevy::prelude::*;
