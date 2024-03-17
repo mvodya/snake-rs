@@ -29,12 +29,16 @@ impl Plugin for SnakePlugin {
                     (move_snake_head, move_snake_body)
                         .in_set(MovementStages::Calculate)
                         .after(MovementStages::Input),
-                    spawn_snake_body,
                     on_snake_spawn,
                     player_score_collector,
                     snake_animation_tick_timer,
                     snake_fat_spread_animation,
-                    (snake_collision, snake_collision_with_snakes).after(MovementStages::Commit),
+                    (
+                        spawn_snake_body,
+                        snake_collision,
+                        snake_collision_with_snakes,
+                    )
+                        .after(MovementStages::Commit),
                 )
                     .run_if(in_state(GameState::InGame)),
             );
